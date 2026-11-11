@@ -8,7 +8,7 @@
 <script src="coi-serviceworker.js"></script>
 <script>
 /* In-page log capture + viewer (button top-right). Handy on devices where devtools are awkward. */
-window.BUILD = 7;   // bump on every redeploy so you can confirm the new site is live after Ctrl+Shift+R
+window.BUILD = 8;   // bump on every redeploy so you can confirm the new site is live after Ctrl+Shift+R
 (function () {
   const buf = [], MAX = 4000;
   const fmt = a => { if (a instanceof Error) return a.stack || a.message; if (a && typeof a === "object") { try { return JSON.stringify(a); } catch (e) {} } return String(a); };
@@ -16,6 +16,21 @@ window.BUILD = 7;   // bump on every redeploy so you can confirm the new site is
   for (const l of ["log", "info", "warn", "error", "debug"]) { const o = console[l].bind(console); console[l] = (...a) => { push(l, a); o(...a); }; }
   addEventListener("error", e => push("UNCAUGHT", [e.message + " @ " + (e.filename || "") + ":" + e.lineno]));
   addEventListener("unhandledrejection", e => push("UNHANDLED-REJECTION", [e.reason]));
+  const ft = []; let lastT = 0;
+  const raf = () => { const n = performance.now(); if (lastT) { ft.push([n, n - lastT]); if (ft.length > 1500) ft.shift(); } lastT = n; requestAnimationFrame(raf); };
+  requestAnimationFrame(raf);
+  function perf() {
+    const now = performance.now(), r = ft.filter(x => now - x[0] < 10000).map(x => x[1]);
+    if (r.length < 5) return "frame timing: (not enough samples yet)";
+    const avg = r.reduce((a, b) => a + b, 0) / r.length, s = [...r].sort((a, b) => a - b);
+    return "frame timing (last 10 s): avg " + avg.toFixed(1) + " ms (" + (1000 / avg).toFixed(1) + " fps), p95 " + s[Math.floor(s.length * 0.95)].toFixed(1) +
+      " ms, worst " + s[s.length - 1].toFixed(0) + " ms, frames >33ms: " + r.filter(x => x > 33).length + ", >100ms: " + r.filter(x => x > 100).length + " of " + r.length;
+  }
+  function timerRes() {
+    let best = Infinity, prev = performance.now();
+    for (let i = 0; i < 20000; i++) { const n = performance.now(); if (n > prev) { best = Math.min(best, n - prev); prev = n; } }
+    return best === Infinity ? "n/a" : best.toFixed(3) + " ms";
+  }
   function env() {
     let gl = "n/a", ver = "n/a", c;
     try {
@@ -25,7 +40,7 @@ window.BUILD = 7;   // bump on every redeploy so you can confirm the new site is
         const l = g.getExtension("WEBGL_lose_context"); if (l) l.loseContext(); } else gl = "NO WEBGL2";
     } catch (e) { gl = "error: " + e.message; }
     return ["build: v" + window.BUILD, "UA: " + navigator.userAgent, "crossOriginIsolated: " + self.crossOriginIsolated, "WebGL2 renderer: " + gl, "WebGL2 version: " + ver,
-      "deviceMemory: " + (navigator.deviceMemory || "?") + " GB, cores: " + (navigator.hardwareConcurrency || "?"), "page: " + location.href, "-----"].join("\n");
+      "deviceMemory: " + (navigator.deviceMemory || "?") + " GB, cores: " + (navigator.hardwareConcurrency || "?"), "timer resolution: " + timerRes(), perf(), "page: " + location.href, "-----"].join("\n");
   }
   addEventListener("DOMContentLoaded", () => {
     const btn = document.createElement("button");
@@ -98,7 +113,7 @@ window.BUILD = 7;   // bump on every redeploy so you can confirm the new site is
   </div>
 
   <button id="start" disabled>Start</button>
-  <label class="chk"><input type="checkbox" id="dbg" checked> Verbose logging (shows emulator output in the browser console)</label>
+  <label class="chk"><input type="checkbox" id="dbg"> Verbose logging (debugging only; can slow things down)</label>
   <div id="msg"></div>
   <div id="status"></div>
   <div id="build" style="margin-top:6px;font-size:12px;color:var(--mute)"></div>
