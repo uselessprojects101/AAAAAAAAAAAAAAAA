@@ -3158,7 +3158,7 @@ class EJS_Frontend {
             const diskLabels = {};
             let isM3U = false;
             let disks = {};
-            if (this.ejs.fileName.split(".").pop() === "m3u") {
+            if (this.ejs.fileName && this.ejs.fileName.split(".").pop() === "m3u") {
                 disks = this.ejs.gameManager.Module.FS.readFile(this.ejs.fileName, { encoding: "utf8" }).split("\n");
                 isM3U = true;
             }

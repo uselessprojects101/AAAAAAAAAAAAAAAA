@@ -968,6 +968,12 @@ class EmulatorJS {
      * Extract file names from downloaded ROM data and start game
      */
     startGameFromDownload(romData) {
+        // No content (e.g. Dreamcast "boot to BIOS"): start the core without a game path
+        if (!romData || !romData.files) {
+            this.fileName = null;
+            this.startGame();
+            return;
+        }
         const fileNames = [];
         for (const file of romData.files) {
             if (file.filename.endsWith("/")) {
@@ -1051,7 +1057,7 @@ class EmulatorJS {
         try {
             const args = [];
             if (this.debug) args.push("-v");
-            args.push("/" + this.fileName);
+            if (this.fileName) args.push("/" + this.fileName);
             if (this.debug) console.log(args);
             this.Module.callMain(args);
             if (typeof this.config.softLoad === "number" && this.config.softLoad > 0) {

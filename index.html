@@ -52,13 +52,14 @@
   </div>
 
   <div class="card">
-    <h2>2 · Game</h2>
-    <p>CHD, CDI, CUE, ISO or a ZIP/7z. For GDI, select the <code>.gdi</code> and all its track files together (or one ZIP).</p>
+    <h2>2 · Game <small>(optional)</small></h2>
+    <p>CHD, CDI, CUE, ISO or a ZIP/7z. For GDI, select the <code>.gdi</code> and all its track files together (or one ZIP). <b>Leave this empty to boot straight into the Dreamcast BIOS menu</b> (needs both BIOS files).</p>
     <div class="drop" id="dropGame">Choose game file(s)<br><small>click or drop</small></div>
     <input type="file" id="fileGame" multiple>
   </div>
 
   <button id="start" disabled>Start</button>
+  <label class="chk"><input type="checkbox" id="dbg"> Verbose logging (shows emulator output in the browser console)</label>
   <div id="msg"></div>
   <div id="status"></div>
 </main>
@@ -133,12 +134,14 @@ const bytes = async f => new Uint8Array(await f.arrayBuffer());
 
 /* ---------- UI wiring ---------- */
 function refresh() {
-  const haveBios = (bios.boot && bios.flash) || $("hle").checked;
   $("dropBoot").classList.toggle("ok", !!bios.boot);   $("dropFlash").classList.toggle("ok", !!bios.flash);
   if (bios.boot) $("dropBoot").innerHTML = "✓ dc_boot.bin"; if (bios.flash) $("dropFlash").innerHTML = "✓ dc_flash.bin";
   $("dropGame").classList.toggle("ok", gameFiles.length > 0);
   if (gameFiles.length) $("dropGame").textContent = "✓ " + (gameFiles.length > 1 ? gameFiles.length + " files" : gameFiles[0].name);
-  $("start").disabled = !(haveBios && gameFiles.length);
+  const fullBios = !!(bios.boot && bios.flash);
+  // BIOS-only boot needs the real BIOS; HLE needs a game
+  $("start").disabled = !(fullBios || ($("hle").checked && gameFiles.length));
+  $("start").textContent = gameFiles.length ? "Start game" : "Boot BIOS (no game)";
 }
 function wireDrop(dropEl, inputEl, onFiles) {
   dropEl.onclick = () => inputEl.click();
@@ -185,7 +188,8 @@ $("start").onclick = async () => {
     }
     // Game: a single file goes straight in; several files (GDI + tracks) get zipped
     let game, name;
-    if (gameFiles.length === 1) { game = gameFiles[0]; name = game.name; }
+    if (gameFiles.length === 0) { game = ""; name = "Dreamcast BIOS"; }   // no content: core boots to BIOS
+    else if (gameFiles.length === 1) { game = gameFiles[0]; name = game.name; }
     else {
       game = new File([await makeZip(await Promise.all(gameFiles.map(async f => ({ name: f.name, data: await bytes(f) }))))], "game.zip");
       name = (gameFiles.find(f => /\.(gdi|cue|cdi|chd)$/i.test(f.name)) || gameFiles[0]).name;
@@ -200,6 +204,7 @@ $("start").onclick = async () => {
     window.EJS_retroarchOpts = { system_directory: "/" };   // flycast looks for <system>/dc/dc_boot.bin
     window.EJS_startOnLoaded = true;
     window.EJS_color = "#ff7a1a";
+    if ($("dbg").checked) window.EJS_DEBUG_XX = true;
 
     $("setup").style.display = "none"; $("stage").style.display = "block";
     const s = document.createElement("script"); s.src = "data/loader.js"; document.body.appendChild(s);
