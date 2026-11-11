@@ -345,9 +345,9 @@ class EmulatorJS {
         
         // Populate downloadTypes
         this.downloadType = {
-            "rom": { "name": "ROM", "dontCache": false, "dontExtractIfCore": ["arcade", "fbneo", "fbalpha2012_cps1", "fbalpha2012_cps2", "same_cdi", "mame", "mame2003_plus", "mame2003"] },
+            "rom": { "name": "ROM", "dontCache": true, "dontExtractIfCore": ["arcade", "fbneo", "fbalpha2012_cps1", "fbalpha2012_cps2", "same_cdi", "mame", "mame2003_plus", "mame2003"] },
             "core": { "name": "Core", "dontCache": false, "cdnFallback": true },
-            "bios": { "name": "BIOS", "dontCache": false, "dontExtractIfCore": ["arcade", "fbneo", "fbalpha2012_cps1", "fbalpha2012_cps2", "same_cdi", "mame", "mame2003_plus", "mame2003"] },
+            "bios": { "name": "BIOS", "dontCache": true, "dontExtractIfCore": ["arcade", "fbneo", "fbalpha2012_cps1", "fbalpha2012_cps2", "same_cdi", "mame", "mame2003_plus", "mame2003"] },
             "parent": { "name": "Parent", "dontCache": false },
             "patch": { "name": "Patch", "dontCache": false },
             "reports": { "name": "Reports", "dontCache": true },
@@ -739,7 +739,7 @@ class EmulatorJS {
 
                 // check cache
                 let key = this.storageCache.generateCacheKey(inData);
-                let cachedItem = await this.storageCache.get(key);
+                let cachedItem = type.dontCache ? null : await this.storageCache.get(key);
                 if (cachedItem) {
                     if (this.debug) console.log("[EJS " + type.name.toUpperCase() + "] Using cached content for " + url.name);
                     returnData = cachedItem;
@@ -787,7 +787,7 @@ class EmulatorJS {
                         Date.now() + 5 * 24 * 60 * 60 * 1000 // 5 days expiration
                     );
 
-                    this.storageCache.put(data);
+                    if (!type.dontCache) this.storageCache.put(data);
 
                     returnData = data;
                 }
