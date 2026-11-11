@@ -8,6 +8,7 @@
 <script src="coi-serviceworker.js"></script>
 <script>
 /* In-page log capture + viewer (button top-right). Handy on devices where devtools are awkward. */
+window.BUILD = 4;   // bump on every redeploy so you can confirm the new site is live after Ctrl+Shift+R
 (function () {
   const buf = [], MAX = 4000;
   const fmt = a => { if (a instanceof Error) return a.stack || a.message; if (a && typeof a === "object") { try { return JSON.stringify(a); } catch (e) {} } return String(a); };
@@ -23,7 +24,7 @@
         gl = d ? g.getParameter(d.UNMASKED_RENDERER_WEBGL) : "(hidden)"; ver = g.getParameter(g.VERSION);
         const l = g.getExtension("WEBGL_lose_context"); if (l) l.loseContext(); } else gl = "NO WEBGL2";
     } catch (e) { gl = "error: " + e.message; }
-    return ["UA: " + navigator.userAgent, "crossOriginIsolated: " + self.crossOriginIsolated, "WebGL2 renderer: " + gl, "WebGL2 version: " + ver,
+    return ["build: v" + window.BUILD, "UA: " + navigator.userAgent, "crossOriginIsolated: " + self.crossOriginIsolated, "WebGL2 renderer: " + gl, "WebGL2 version: " + ver,
       "deviceMemory: " + (navigator.deviceMemory || "?") + " GB, cores: " + (navigator.hardwareConcurrency || "?"), "page: " + location.href, "-----"].join("\n");
   }
   addEventListener("DOMContentLoaded", () => {
@@ -97,9 +98,10 @@
   </div>
 
   <button id="start" disabled>Start</button>
-  <label class="chk"><input type="checkbox" id="dbg"> Verbose logging (shows emulator output in the browser console)</label>
+  <label class="chk"><input type="checkbox" id="dbg" checked> Verbose logging (shows emulator output in the browser console)</label>
   <div id="msg"></div>
   <div id="status"></div>
+  <div id="build" style="margin-top:6px;font-size:12px;color:var(--mute)"></div>
 </main>
 <div id="stage"><div id="game"></div></div>
 
@@ -203,6 +205,8 @@ wireDrop($("dropGame"), $("fileGame"), fs => { gameFiles = fs; refresh(); });
 $("hle").onchange = refresh;
 $("forget").onclick = async () => { await idbOp("readwrite", s => { s.delete("boot"); s.delete("flash"); }); location.reload(); };
 
+$("build").textContent = "Build v" + window.BUILD;
+console.log("Flycast web build v" + window.BUILD);
 (async () => {
   for (const k of ["boot", "flash"]) { const f = await loadBios(k); if (f) bios[k] = f; }
   refresh();

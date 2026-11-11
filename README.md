@@ -19,6 +19,9 @@ and game file; nothing is uploaded anywhere (BIOS is cached in the visitor's own
 - `data/cores/reports/flycast.json` – cache-busting stamp; bump `buildStart` when you replace the core
 - `config-reference/` – the original core.json / option files from flycast-wasm
 
+## Build number
+Bump `window.BUILD` in `index.html` on every redeploy; it shows under the Start button and in the Log panel.
+
 ## Updating the core
 Rebuild/replace `flycast_libretro.js` + `.wasm`, repack into `flycast-wasm.data`
 (7z containing `flycast_libretro.js`, `flycast_libretro.wasm`, `core.json`), change `buildStart`.
