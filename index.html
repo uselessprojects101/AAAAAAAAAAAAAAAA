@@ -6,6 +6,44 @@
 <title>Flycast WASM – Dreamcast in your browser</title>
 <!-- Adds COOP/COEP headers via a service worker, since GitHub Pages can't. Must be first. -->
 <script src="coi-serviceworker.js"></script>
+<script>
+/* In-page log capture + viewer (button top-right). Handy on devices where devtools are awkward. */
+(function () {
+  const buf = [], MAX = 4000;
+  const fmt = a => { if (a instanceof Error) return a.stack || a.message; if (a && typeof a === "object") { try { return JSON.stringify(a); } catch (e) {} } return String(a); };
+  const push = (lvl, args) => { try { buf.push("[" + new Date().toISOString().slice(11, 23) + "] " + lvl + " " + args.map(fmt).join(" ")); if (buf.length > MAX) buf.shift(); } catch (e) {} };
+  for (const l of ["log", "info", "warn", "error", "debug"]) { const o = console[l].bind(console); console[l] = (...a) => { push(l, a); o(...a); }; }
+  addEventListener("error", e => push("UNCAUGHT", [e.message + " @ " + (e.filename || "") + ":" + e.lineno]));
+  addEventListener("unhandledrejection", e => push("UNHANDLED-REJECTION", [e.reason]));
+  function env() {
+    let gl = "n/a", ver = "n/a", c;
+    try {
+      c = document.createElement("canvas"); const g = c.getContext("webgl2");
+      if (g) { const d = g.getExtension("WEBGL_debug_renderer_info");
+        gl = d ? g.getParameter(d.UNMASKED_RENDERER_WEBGL) : "(hidden)"; ver = g.getParameter(g.VERSION);
+        const l = g.getExtension("WEBGL_lose_context"); if (l) l.loseContext(); } else gl = "NO WEBGL2";
+    } catch (e) { gl = "error: " + e.message; }
+    return ["UA: " + navigator.userAgent, "crossOriginIsolated: " + self.crossOriginIsolated, "WebGL2 renderer: " + gl, "WebGL2 version: " + ver,
+      "deviceMemory: " + (navigator.deviceMemory || "?") + " GB, cores: " + (navigator.hardwareConcurrency || "?"), "page: " + location.href, "-----"].join("\n");
+  }
+  addEventListener("DOMContentLoaded", () => {
+    const btn = document.createElement("button");
+    btn.textContent = "Log"; btn.style.cssText = "position:fixed;top:6px;right:6px;z-index:2147483647;opacity:.6;padding:4px 10px;font-size:12px;border-radius:6px";
+    const box = document.createElement("div");
+    box.style.cssText = "display:none;position:fixed;inset:40px 10px 10px 10px;z-index:2147483647;background:#111;border:1px solid #444;border-radius:8px;padding:8px;flex-direction:column;gap:6px";
+    const ta = document.createElement("textarea"); ta.readOnly = true;
+    ta.style.cssText = "flex:1;width:100%;background:#000;color:#ddd;font:11px monospace;border:0;resize:none";
+    const row = document.createElement("div"); row.style.cssText = "display:flex;gap:8px";
+    const mk = (t, f) => { const b = document.createElement("button"); b.textContent = t; b.style.cssText = "padding:6px 12px;font-size:13px"; b.onclick = f; row.appendChild(b); return b; };
+    const render = () => { ta.value = env() + "\n" + buf.join("\n"); ta.scrollTop = ta.scrollHeight; };
+    mk("Refresh", render);
+    mk("Copy", async () => { render(); try { await navigator.clipboard.writeText(ta.value); } catch (e) { ta.select(); document.execCommand("copy"); } });
+    mk("Close", () => { box.style.display = "none"; });
+    box.append(ta, row); document.body.append(btn, box);
+    btn.onclick = () => { box.style.display = box.style.display === "none" ? "flex" : "none"; if (box.style.display === "flex") render(); };
+  });
+})();
+</script>
 <style>
   :root { color-scheme: dark; --bg:#0f1117; --card:#181b24; --line:#2a2f3d; --fg:#e8eaf0; --mute:#9aa3b5; --acc:#ff7a1a; }
   * { box-sizing: border-box; }
