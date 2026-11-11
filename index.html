@@ -8,7 +8,7 @@
 <script src="coi-serviceworker.js"></script>
 <script>
 /* In-page log capture + viewer (button top-right). Handy on devices where devtools are awkward. */
-window.BUILD = 6;   // bump on every redeploy so you can confirm the new site is live after Ctrl+Shift+R
+window.BUILD = 7;   // bump on every redeploy so you can confirm the new site is live after Ctrl+Shift+R
 (function () {
   const buf = [], MAX = 4000;
   const fmt = a => { if (a instanceof Error) return a.stack || a.message; if (a && typeof a === "object") { try { return JSON.stringify(a); } catch (e) {} } return String(a); };
@@ -92,7 +92,7 @@ window.BUILD = 6;   // bump on every redeploy so you can confirm the new site is
 
   <div class="card">
     <h2>2 · Game <small>(optional)</small></h2>
-    <p>CHD, CDI, CUE, ISO or a ZIP/7z. For GDI, select the <code>.gdi</code> and all its track files together (or one ZIP). <b>Leave this empty to try booting the Dreamcast BIOS menu</b> (needs both BIOS files; uses a blank disc, experimental).</p>
+    <p>CHD, CDI, CUE, ISO or a ZIP/7z. For GDI, select the <code>.gdi</code> and all its track files together (or one ZIP). <b>Leave this empty to try booting the Dreamcast BIOS menu</b> (needs both BIOS files; uses a blank GD-ROM image, experimental).</p>
     <div class="drop" id="dropGame">Choose game file(s)<br><small>click or drop</small></div>
     <input type="file" id="fileGame" multiple>
   </div>
@@ -230,16 +230,24 @@ $("start").onclick = async () => {
     // Game: a single file goes straight in; several files (GDI + tracks) get zipped
     let game, name;
     if (gameFiles.length === 0) {
-      // RetroArch won't start Flycast without content, so hand it a blank (unbootable) CD:
+      // RetroArch won't start Flycast without content, so hand it a blank (unbootable) GD-ROM:
       // the Dreamcast BIOS finds nothing to boot and stays in its own menu.
-      const cue = new TextEncoder().encode('REM SINGLE-DENSITY AREA\nFILE "blank.bin" BINARY\n  TRACK 01 MODE2/2352\n    INDEX 01 00:00:00\n');
-      game = new File([await makeZip([{ name: "blank.cue", data: cue }, { name: "blank.bin", data: new Uint8Array(1000 * 2352) }])], "blank-disc.zip");
+      // (GDI, not CUE: this core build's small stack overflows in Flycast's CUE parser.)
+      const gdi = new TextEncoder().encode("3\n1 0 4 2048 track01.bin 0\n2 450 0 2352 track02.raw 0\n3 45000 4 2048 track03.bin 0\n");
+      game = new File([await makeZip([
+        { name: "blank.gdi",   data: gdi },
+        { name: "track01.bin", data: new Uint8Array(450 * 2048) },
+        { name: "track02.raw", data: new Uint8Array(100 * 2352) },
+        { name: "track03.bin", data: new Uint8Array(100 * 2048) }])], "blank-disc.zip");
       name = "Dreamcast BIOS";
     }
     else if (gameFiles.length === 1) { game = gameFiles[0]; name = game.name; }
     else {
-      game = new File([await makeZip(await Promise.all(gameFiles.map(async f => ({ name: f.name, data: await bytes(f) }))))], "game.zip");
-      name = (gameFiles.find(f => /\.(gdi|cue|cdi|chd)$/i.test(f.name)) || gameFiles[0]).name;
+      // the disc descriptor must come first, or EmulatorJS may launch a track file instead
+      const main = gameFiles.find(f => /\.(gdi|cue|cdi|chd)$/i.test(f.name)) || gameFiles[0];
+      const ordered = [main, ...gameFiles.filter(f => f !== main)];
+      game = new File([await makeZip(await Promise.all(ordered.map(async f => ({ name: f.name, data: await bytes(f) }))))], "game.zip");
+      name = main.name;
     }
 
     window.EJS_player = "#game";
