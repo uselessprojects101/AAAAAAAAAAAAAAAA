@@ -613,15 +613,8 @@ class EmulatorJS {
             if (this.requiresWebGL2(this.getCore())) {
                 this.webgl2Enabled = true;
             }
-            let threads = false;
-            if (typeof window.SharedArrayBuffer === "function") {
-                const opt = this.preGetSetting("ejs_threads");
-                if (opt) {
-                    threads = (opt === "enabled");
-                } else {
-                    threads = this.config.threads;
-                }
-            }
+            // This site only ships the single-threaded core, so ignore any saved "Threads: enabled" setting.
+            const threads = false;
 
             let legacy = (this.supportsWebgl2 && this.webgl2Enabled ? "" : "-legacy");
             let filename = this.getCore() + (threads ? "-thread" : "") + legacy + "-wasm.data";

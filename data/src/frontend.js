@@ -3458,7 +3458,7 @@ class EJS_Frontend {
         if (core && core.length > 1) {
             addToMenu(this.localization("Core" + " (" + this.localization("Requires restart") + ")"), "retroarch_core", core, this.ejs.getCore(), home);
         }
-        if (typeof window.SharedArrayBuffer === "function" && !this.ejs.requiresThreads(this.ejs.getCore())) {
+        if (false && typeof window.SharedArrayBuffer === "function" && !this.ejs.requiresThreads(this.ejs.getCore())) { // no threaded core on this site
             addToMenu(this.localization("Threads"), "ejs_threads", {
                 "enabled": this.localization("Enabled"),
                 "disabled": this.localization("Disabled")

@@ -8,7 +8,7 @@
 <script src="coi-serviceworker.js"></script>
 <script>
 /* In-page log capture + viewer (button top-right). Handy on devices where devtools are awkward. */
-window.BUILD = 9;   // bump on every redeploy so you can confirm the new site is live after Ctrl+Shift+R
+window.BUILD = 10;   // bump on every redeploy so you can confirm the new site is live after Ctrl+Shift+R
 (function () {
   const buf = [], MAX = 4000;
   const fmt = a => { if (a instanceof Error) return a.stack || a.message; if (a && typeof a === "object") { try { return JSON.stringify(a); } catch (e) {} } return String(a); };

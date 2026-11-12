@@ -40,3 +40,8 @@ Measured on a mid-range Windows PC in Firefox 160: ~26 ms/frame (≈35-38 FPS) o
 Timer resolution was fine (0.02 ms), so pacing isn't a timer problem; emulation speed is the limit.
 The AICA (ARM7 + DSP) is upstream code without a JIT, so the launcher has a "Speed mode" that disables the DSP
 and enables auto frame-skip. Compare browsers with the frame-timing line in the Log panel (60 FPS = 16.7 ms).
+
+## Threads setting
+EmulatorJS remembers a "Threads: enabled" toggle per browser and would then request a non-existent
+`flycast-thread-wasm.data`. This site ships only the single-threaded core, so the toggle is removed
+and the threaded variant is never requested.
