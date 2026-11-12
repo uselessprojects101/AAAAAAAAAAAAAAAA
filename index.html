@@ -8,7 +8,7 @@
 <script src="coi-serviceworker.js"></script>
 <script>
 /* In-page log capture + viewer (button top-right). Handy on devices where devtools are awkward. */
-window.BUILD = 8;   // bump on every redeploy so you can confirm the new site is live after Ctrl+Shift+R
+window.BUILD = 9;   // bump on every redeploy so you can confirm the new site is live after Ctrl+Shift+R
 (function () {
   const buf = [], MAX = 4000;
   const fmt = a => { if (a instanceof Error) return a.stack || a.message; if (a && typeof a === "object") { try { return JSON.stringify(a); } catch (e) {} } return String(a); };
@@ -113,6 +113,7 @@ window.BUILD = 8;   // bump on every redeploy so you can confirm the new site is
   </div>
 
   <button id="start" disabled>Start</button>
+  <label class="chk"><input type="checkbox" id="fast" checked> Speed mode (turns off the audio DSP and enables automatic frame-skip; less accurate audio effects, but faster)</label>
   <label class="chk"><input type="checkbox" id="dbg"> Verbose logging (debugging only; can slow things down)</label>
   <div id="msg"></div>
   <div id="status"></div>
@@ -129,12 +130,10 @@ const CORE_OPTIONS = {
   "reicast_synchronous_rendering": "disabled",
   "reicast_internal_resolution": "640x480",
   "reicast_mipmapping": "disabled",
-  "reicast_anisotropic_filtering": "1",
   "reicast_enable_rttb": "disabled",
   "reicast_enable_purupuru": "disabled",
   "reicast_alpha_sorting": "per-strip (fast, least accurate)",
   "reicast_delay_frame_swapping": "disabled",
-  "reicast_frame_skipping": "enabled",
   "reicast_framerate": "normal"
 };
 
@@ -235,6 +234,7 @@ $("start").onclick = async () => {
   try {
     const opts = { ...CORE_OPTIONS };
     if ($("hle").checked && !(bios.boot && bios.flash)) opts.reicast_hle_bios = "enabled";
+    if ($("fast").checked) { opts.reicast_enable_dsp = "disabled"; opts.reicast_auto_skip_frame = "some"; }
 
     // BIOS -> zip with a dc/ folder so the files land at /dc/dc_boot.bin etc. in the core's filesystem
     if (bios.boot && bios.flash) {
