@@ -192,6 +192,7 @@ class EmulatorJS {
         })
     }
     checkForUpdates() {
+        return; // self-hosted copy: no update check against cdn.emulatorjs.org
         if (this.ejs_version.endsWith("-beta")) {
             console.warn("Using EmulatorJS beta. Not checking for updates. This instance may be out of date. Using stable is highly recommended unless you build and ship your own cores.");
             return;

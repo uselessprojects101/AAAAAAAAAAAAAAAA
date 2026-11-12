@@ -8,7 +8,7 @@
 <script src="coi-serviceworker.js"></script>
 <script>
 /* In-page log capture + viewer (button top-right). Handy on devices where devtools are awkward. */
-window.BUILD = 13;   // bump on every redeploy so you can confirm the new site is live after Ctrl+Shift+R
+window.BUILD = 14;   // bump on every redeploy so you can confirm the new site is live after Ctrl+Shift+R
 (function () {
   const buf = [], MAX = 4000;
   const fmt = a => { if (a instanceof Error) return a.stack || a.message; if (a && typeof a === "object") { try { return JSON.stringify(a); } catch (e) {} } return String(a); };
@@ -116,7 +116,7 @@ window.BUILD = 13;   // bump on every redeploy so you can confirm the new site i
     </div>
     <input type="file" id="fileBoot"><input type="file" id="fileFlash">
     <label class="chk"><input type="checkbox" id="hle"> No BIOS? Try HLE BIOS (experimental, lower compatibility)</label>
-    <p style="margin:8px 0 0"><button class="link" id="forget">Forget saved BIOS</button></p>
+    <p style="margin:8px 0 0"><button class="link" id="forget">Forget saved BIOS</button> · <button class="link" id="resetset">Reset saved emulator settings</button></p>
   </div>
 
   <div class="card">
@@ -133,6 +133,14 @@ window.BUILD = 13;   // bump on every redeploy so you can confirm the new site i
       <option value="speed">Speed (audio DSP off, auto frame-skip)</option>
       <option value="max">Maximum (low-end PCs / Chromebooks: also 320x240, no fog, max frame-skip)</option>
     </select></label>
+  <label class="chk">SH4 CPU clock
+    <select id="clock" style="margin-left:6px;background:#0f1117;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:4px 6px">
+      <option value="200">200 MHz (default)</option>
+      <option value="180">180 MHz</option>
+      <option value="150">150 MHz</option>
+      <option value="120">120 MHz</option>
+      <option value="100">100 MHz (lowest)</option>
+    </select> <small style="margin-left:6px">lower = less emulation work, but games get less CPU time</small></label>
   <label class="chk"><input type="checkbox" id="hud"> Show performance HUD (ms per frame spent in core / rendering / audio chip)</label>
   <label class="chk"><input type="checkbox" id="dbg"> Verbose logging (debugging only; can slow things down)</label>
   <div id="msg"></div>
@@ -236,10 +244,16 @@ wireDrop($("dropBoot"), $("fileBoot"), fs => takeBios(fs, "boot"));
 wireDrop($("dropFlash"), $("fileFlash"), fs => takeBios(fs, "flash"));
 wireDrop($("dropGame"), $("fileGame"), fs => { gameFiles = fs; refresh(); });
 $("hle").onchange = refresh;
+// Settings changed in the in-game menu are saved in this browser and override the choices above; this clears them (also resets controls/volume).
+$("resetset").onclick = () => {
+  try { Object.keys(localStorage).filter(k => k.startsWith("ejs-")).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+  $("msg").style.color = "#3fb950"; $("msg").textContent = "Saved emulator settings cleared. Your profile and clock choices above will apply on the next start.";
+};
 $("forget").onclick = async () => { await idbOp("readwrite", s => { s.delete("boot"); s.delete("flash"); }); location.reload(); };
 
 $("build").textContent = "Build v" + window.BUILD;
 $("perf").value = /CrOS/.test(navigator.userAgent) ? "max" : "speed";
+$("clock").value = /CrOS/.test(navigator.userAgent) ? "150" : "200";
 if (/Firefox\//.test(navigator.userAgent)) $("ffnote").style.display = "block";
 console.log("Flycast web build v" + window.BUILD);
 (async () => {
@@ -252,7 +266,7 @@ console.log("Flycast web build v" + window.BUILD);
 
 /* ---------- launch ---------- */
 $("start").onclick = async () => {
-  $("start").disabled = true; $("msg").textContent = "";
+  $("start").disabled = true; $("msg").textContent = ""; $("msg").style.color = "";
   try {
     const opts = { ...CORE_OPTIONS };
     if ($("hle").checked && !(bios.boot && bios.flash)) opts.reicast_hle_bios = "enabled";
@@ -263,6 +277,7 @@ $("start").onclick = async () => {
       opts.reicast_fog = "disabled"; opts.reicast_anisotropic_filtering = "off"; opts.reicast_mipmapping = "disabled";
     }
     // the core's own HUD is switched on by ?hud=1 in the page URL (it reads location.search)
+    opts.reicast_sh4clock = $("clock").value;
     if ($("hud").checked) history.replaceState(null, "", location.pathname + "?hud=1" + location.hash);
 
     // BIOS -> zip with a dc/ folder so the files land at /dc/dc_boot.bin etc. in the core's filesystem
