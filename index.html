@@ -8,7 +8,7 @@
 <script src="coi-serviceworker.js"></script>
 <script>
 /* In-page log capture + viewer (button top-right). Handy on devices where devtools are awkward. */
-window.BUILD = 10;   // bump on every redeploy so you can confirm the new site is live after Ctrl+Shift+R
+window.BUILD = 13;   // bump on every redeploy so you can confirm the new site is live after Ctrl+Shift+R
 (function () {
   const buf = [], MAX = 4000;
   const fmt = a => { if (a instanceof Error) return a.stack || a.message; if (a && typeof a === "object") { try { return JSON.stringify(a); } catch (e) {} } return String(a); };
@@ -31,18 +31,27 @@ window.BUILD = 10;   // bump on every redeploy so you can confirm the new site i
     for (let i = 0; i < 20000; i++) { const n = performance.now(); if (n > prev) { best = Math.min(best, n - prev); prev = n; } }
     return best === Infinity ? "n/a" : best.toFixed(3) + " ms";
   }
+  const hudLines = []; let lastHud = "";
+  setInterval(() => {
+    const el = document.getElementById("fc-hud"); if (!el || !el.textContent || el.textContent === lastHud) return;
+    lastHud = el.textContent; hudLines.push("[" + new Date().toISOString().slice(11, 19) + "] " + lastHud); if (hudLines.length > 300) hudLines.shift();
+  }, 2000);
+  const hudSection = () => hudLines.length ? "HUD samples (every ~2 s, newest last; FPS actual/target, ft=frame ms min/avg/max, core/rp=parse/sort/draw/aica ms):\n" + hudLines.slice(-40).join("\n") + "\n-----\n" : "";
+  let gpuCache = null;   // read the GPU once at page load; creating a WebGL context mid-game can hitch
   function env() {
     let gl = "n/a", ver = "n/a", c;
-    try {
+    if (gpuCache) { gl = gpuCache[0]; ver = gpuCache[1]; } else try {
       c = document.createElement("canvas"); const g = c.getContext("webgl2");
       if (g) { const d = g.getExtension("WEBGL_debug_renderer_info");
         gl = d ? g.getParameter(d.UNMASKED_RENDERER_WEBGL) : "(hidden)"; ver = g.getParameter(g.VERSION);
         const l = g.getExtension("WEBGL_lose_context"); if (l) l.loseContext(); } else gl = "NO WEBGL2";
     } catch (e) { gl = "error: " + e.message; }
+    gpuCache = [gl, ver];
     return ["build: v" + window.BUILD, "UA: " + navigator.userAgent, "crossOriginIsolated: " + self.crossOriginIsolated, "WebGL2 renderer: " + gl, "WebGL2 version: " + ver,
       "deviceMemory: " + (navigator.deviceMemory || "?") + " GB, cores: " + (navigator.hardwareConcurrency || "?"), "timer resolution: " + timerRes(), perf(), "page: " + location.href, "-----"].join("\n");
   }
   addEventListener("DOMContentLoaded", () => {
+    env();   // prime the GPU cache before any game starts
     const btn = document.createElement("button");
     btn.textContent = "Log"; btn.style.cssText = "position:fixed;top:6px;right:6px;z-index:2147483647;opacity:.6;padding:4px 10px;font-size:12px;border-radius:6px";
     const box = document.createElement("div");
@@ -51,7 +60,7 @@ window.BUILD = 10;   // bump on every redeploy so you can confirm the new site i
     ta.style.cssText = "flex:1;width:100%;background:#000;color:#ddd;font:11px monospace;border:0;resize:none";
     const row = document.createElement("div"); row.style.cssText = "display:flex;gap:8px";
     const mk = (t, f) => { const b = document.createElement("button"); b.textContent = t; b.style.cssText = "padding:6px 12px;font-size:13px"; b.onclick = f; row.appendChild(b); return b; };
-    const render = () => { ta.value = env() + "\n" + buf.join("\n"); ta.scrollTop = ta.scrollHeight; };
+    const render = () => { ta.value = env() + "\n" + hudSection() + buf.join("\n"); ta.scrollTop = ta.scrollHeight; };
     mk("Refresh", render);
     mk("Copy", async () => { render(); try { await navigator.clipboard.writeText(ta.value); } catch (e) { ta.select(); document.execCommand("copy"); } });
     mk("Close", () => { box.style.display = "none"; });
@@ -93,6 +102,11 @@ window.BUILD = 10;   // bump on every redeploy so you can confirm the new site i
   <h1>Flycast WASM</h1>
   <p class="sub">Sega Dreamcast in a browser tab, via a WebAssembly SH4 JIT. Everything runs locally; your files never leave your computer.</p>
 
+  <div id="ffnote" class="card" style="display:none;border-color:var(--acc)">
+    <h2>Heads up: Firefox</h2>
+    <p style="margin:0">This core runs much better in <b>Chrome or Edge</b>. In testing, Firefox managed about 35 FPS on the Dreamcast BIOS menu while Edge was close to full speed.</p>
+  </div>
+
   <div class="card">
     <h2>1 · Dreamcast BIOS</h2>
     <p>Bring your own legally dumped <code>dc_boot.bin</code> and <code>dc_flash.bin</code>. They're kept in this browser only, so you only pick them once.</p>
@@ -113,7 +127,13 @@ window.BUILD = 10;   // bump on every redeploy so you can confirm the new site i
   </div>
 
   <button id="start" disabled>Start</button>
-  <label class="chk"><input type="checkbox" id="fast" checked> Speed mode (turns off the audio DSP and enables automatic frame-skip; less accurate audio effects, but faster)</label>
+  <label class="chk">Performance profile
+    <select id="perf" style="margin-left:6px;background:#0f1117;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:4px 6px">
+      <option value="balanced">Balanced (core defaults)</option>
+      <option value="speed">Speed (audio DSP off, auto frame-skip)</option>
+      <option value="max">Maximum (low-end PCs / Chromebooks: also 320x240, no fog, max frame-skip)</option>
+    </select></label>
+  <label class="chk"><input type="checkbox" id="hud"> Show performance HUD (ms per frame spent in core / rendering / audio chip)</label>
   <label class="chk"><input type="checkbox" id="dbg"> Verbose logging (debugging only; can slow things down)</label>
   <div id="msg"></div>
   <div id="status"></div>
@@ -219,6 +239,8 @@ $("hle").onchange = refresh;
 $("forget").onclick = async () => { await idbOp("readwrite", s => { s.delete("boot"); s.delete("flash"); }); location.reload(); };
 
 $("build").textContent = "Build v" + window.BUILD;
+$("perf").value = /CrOS/.test(navigator.userAgent) ? "max" : "speed";
+if (/Firefox\//.test(navigator.userAgent)) $("ffnote").style.display = "block";
 console.log("Flycast web build v" + window.BUILD);
 (async () => {
   for (const k of ["boot", "flash"]) { const f = await loadBios(k); if (f) bios[k] = f; }
@@ -234,7 +256,14 @@ $("start").onclick = async () => {
   try {
     const opts = { ...CORE_OPTIONS };
     if ($("hle").checked && !(bios.boot && bios.flash)) opts.reicast_hle_bios = "enabled";
-    if ($("fast").checked) { opts.reicast_enable_dsp = "disabled"; opts.reicast_auto_skip_frame = "some"; }
+    const prof = $("perf").value;
+    if (prof === "speed" || prof === "max") { opts.reicast_enable_dsp = "disabled"; opts.reicast_auto_skip_frame = "some"; }
+    if (prof === "max") {
+      opts.reicast_auto_skip_frame = "more"; opts.reicast_internal_resolution = "320x240";
+      opts.reicast_fog = "disabled"; opts.reicast_anisotropic_filtering = "off"; opts.reicast_mipmapping = "disabled";
+    }
+    // the core's own HUD is switched on by ?hud=1 in the page URL (it reads location.search)
+    if ($("hud").checked) history.replaceState(null, "", location.pathname + "?hud=1" + location.hash);
 
     // BIOS -> zip with a dc/ folder so the files land at /dc/dc_boot.bin etc. in the core's filesystem
     if (bios.boot && bios.flash) {

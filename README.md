@@ -45,3 +45,15 @@ and enables auto frame-skip. Compare browsers with the frame-timing line in the 
 EmulatorJS remembers a "Threads: enabled" toggle per browser and would then request a non-existent
 `flycast-thread-wasm.data`. This site ships only the single-threaded core, so the toggle is removed
 and the threaded variant is never requested.
+
+Edge 157 on the same PC (i5-9500, RTX 3050), BIOS menu with Speed mode on (320x240 internal resolution chosen by the tester;
+640x480 was also fine): ~15 ms/frame (≈66 FPS), p95 23 ms. Firefox was slow with Speed mode on as well, so the browser is the cause.
+
+## Performance profiles and the HUD
+- Launcher "Performance profile": **Balanced** (core defaults), **Speed** (audio DSP off, auto frame-skip),
+  **Maximum** (also 320x240, no fog, anisotropic off, maximum frame-skip). ChromeOS defaults to Maximum, other systems to Speed.
+- "Show performance HUD" turns on the core's built-in HUD (`?hud=1`). It shows FPS actual/target, frame time min/avg/max (`ft`),
+  emulation time (`core`), render parse/sort/draw time (`rp`), and audio-chip time (`aica`) in ms per frame, plus audio queue
+  stats (`wq`, `un` underruns, `dr` drops). The Log panel keeps the last HUD samples, so Copy includes them.
+- Reading it: if `core` is the biggest number the SH4 JIT is the limit (only frame-skip/underclock help); if `rp` draw is big the GPU is
+  the limit (resolution/fog help); if `aica` is big the audio chip is the limit (DSP is already off in Speed/Maximum).
